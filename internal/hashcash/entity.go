@@ -3,8 +3,10 @@ package hashcash
 import (
 	"fmt"
 	"main/internal/shared/helpers"
+	"math/rand"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Stamp struct {
@@ -79,4 +81,18 @@ func (s *Stamp) ComputeHash(maxIterations int) (Stamp, error) {
 		s.Counter++
 	}
 	return *s, ErrorMaxIterationsExceeded
+}
+
+func (s *Stamp) IssueStamp(resource string, zerosCount int) *Stamp {
+	randNum := rand.Intn(200000)
+	randStr := strconv.Itoa(randNum)
+
+	s.Version = 1
+	s.ZerosCount = zerosCount
+	s.Date = time.Now().Unix()
+	s.Resource = resource
+	s.Rand = randStr
+	s.Counter = 0
+
+	return s
 }

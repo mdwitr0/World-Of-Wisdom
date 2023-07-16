@@ -3,20 +3,14 @@ package client
 import (
 	"bufio"
 	"encoding/json"
-	"fmt"
 	"log"
 	"main/internal/hashcash"
-	"math/rand"
+	"main/internal/message"
+	"main/internal/shared/helpers"
 	"net"
-	"time"
 )
 
 const maxIterations = 10000000
-
-type Quote struct {
-	Author string `json:"author"`
-	Text   string `json:"text"`
-}
 
 type Client struct {
 	Hostname string
@@ -35,85 +29,110 @@ func NewClient(hostname, port, resource string) *Client {
 func (client *Client) Start() error {
 	conn, err := net.Dial("tcp", client.Hostname+":"+client.Port)
 	if err != nil {
-		return fmt.Errorf("%w: %s", ErrFailedToDial, err.Error())
+		log.Printf("%s: %v", ErrFailedToDial, err)
+		return ErrFailedToDial
 	}
 	defer conn.Close()
-	log.Printf("connected to %s:%s", client.Hostname, client.Port)
 
 	err = client.handleConnection(conn)
 	if err != nil {
-		return fmt.Errorf("%w: %s", ErrFailedToEstablish, err.Error())
+		log.Printf("%s: %v", ErrFailedToHandleConn, err)
+		return ErrFailedToHandleConn
 	}
-
 	return nil
 }
 
 func (client *Client) handleConnection(conn net.Conn) error {
-	stamp := client.initialStamp()
-	stampBytes, _ := json.Marshal(stamp)
-
-	_, err := conn.Write(append(stampBytes, '\n'))
+	err := client.requestChallenge(conn)
 	if err != nil {
-		log.Printf("%s: %s", ErrFailedToWrite, err.Error())
-
-		return ErrFailedToWrite
-	}
-	log.Printf("initial stamp sent")
-
-	reader := bufio.NewReader(conn)
-	stampBytes, err = reader.ReadBytes('\n')
-	if err != nil {
-		log.Printf("%s: %s", ErrFailedToRead, err.Error())
-
-		return ErrFailedToRead
+		log.Printf("%s: %v", ErrFailedToSendMsg, err)
+		return ErrFailedToSendMsg
 	}
 
-	err = json.Unmarshal(stampBytes, &stamp)
+	resp, err := receiveResponse(conn)
 	if err != nil {
-		log.Printf("%s: %s", ErrFailedToUnmarshal, err.Error())
+		log.Printf("%s: %v", ErrFailedToReadResponse, err)
+		return ErrFailedToReadResponse
+	}
 
+	quoteRequest, err := handleChallengeResponse(resp)
+	if err != nil {
+		log.Printf("%s: %v", ErrFailedToHandleResp, err)
+		return ErrFailedToHandleResp
+	}
+
+	err = helpers.SendMessage(*quoteRequest, conn)
+	if err != nil {
+		log.Printf("%s: %v", ErrFailedToSendMsg, err)
+		return ErrFailedToSendMsg
+	}
+
+	respQuote, err := receiveResponse(conn)
+	if err != nil {
+		log.Printf("%s: %v", ErrFailedToReadResponse, err)
+		return ErrFailedToReadResponse
+	}
+
+	quote, err := unmarshallQuote(respQuote)
+	if err != nil {
+		log.Printf("%s: %v", ErrFailedToUnmarshal, err)
 		return ErrFailedToUnmarshal
 	}
 
-	solvedStamp, _ := stamp.ComputeHash(maxIterations)
-	stampBytes, _ = json.Marshal(solvedStamp)
-	log.Printf("stamp solved, sending back")
-
-	_, err = conn.Write(append(stampBytes, '\n'))
-	if err != nil {
-		log.Printf("%s: %s", ErrFailedToWrite, err.Error())
-
-		return ErrFailedToWrite
-	}
-
-	log.Printf("solved stamp sent")
-
-	quoteBytes, err := reader.ReadBytes('\n')
-	if err != nil {
-		log.Printf("%s: %s", ErrFailedToRead, err.Error())
-
-		return ErrFailedToRead
-	}
-
-	var quote string
-	if err := json.Unmarshal(quoteBytes, &quote); err != nil {
-		log.Printf("%s: %s", ErrFailedToUnmarshal, err.Error())
-
-		return ErrFailedToUnmarshal
-	}
-
-	log.Printf("received quote: %++v", quote)
+	log.Printf("Received quote: %s", quote)
 
 	return nil
 }
 
-func (client *Client) initialStamp() hashcash.Stamp {
-	return hashcash.Stamp{
-		Version:    1,
-		ZerosCount: 4,
-		Date:       time.Now().Unix(),
-		Resource:   client.Resource,
-		Rand:       fmt.Sprint(rand.Intn(100)),
-		Counter:    0,
+func (client *Client) requestChallenge(conn net.Conn) error {
+	msg := message.Message{Type: message.ChallengeRequest, Data: ""}
+	return helpers.SendMessage(msg, conn)
+}
+
+func receiveResponse(conn net.Conn) (string, error) {
+	reader := bufio.NewReader(conn)
+	resp, err := reader.ReadString('\n')
+	return resp, err
+}
+
+func unmarshallQuote(respQuote string) (string, error) {
+	quoteResponseMessage := message.Message{}
+	err := json.Unmarshal([]byte(respQuote), &quoteResponseMessage)
+	if err != nil {
+		return "", err
 	}
+	return quoteResponseMessage.Data, nil
+}
+
+func handleChallengeResponse(resp string) (*message.Message, error) {
+	stamp := hashcash.Stamp{}
+	err := unmarshallStamp(resp, &stamp)
+	if err != nil {
+		return nil, err
+	}
+	solvedStamp, err := solveStamp(stamp)
+	if err != nil {
+		return nil, err
+	}
+	return prepareQuoteRequest(*solvedStamp), nil
+}
+
+func unmarshallStamp(resp string, stamp *hashcash.Stamp) error {
+	challengeResponseMessage := message.Message{}
+	err := json.Unmarshal([]byte(resp), &challengeResponseMessage)
+	if err != nil {
+		return err
+	}
+	err = json.Unmarshal([]byte(challengeResponseMessage.Data), stamp)
+	return err
+}
+
+func solveStamp(stamp hashcash.Stamp) (*hashcash.Stamp, error) {
+	solved, _ := stamp.ComputeHash(maxIterations)
+	return &solved, nil
+}
+
+func prepareQuoteRequest(solvedStamp hashcash.Stamp) *message.Message {
+	solvedStampMarshalled, _ := json.Marshal(solvedStamp)
+	return &message.Message{Type: message.QuoteRequest, Data: string(solvedStampMarshalled)}
 }

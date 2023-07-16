@@ -1,7 +1,7 @@
 package hashcash
 
 import (
-	"context"
+	"fmt"
 	"strconv"
 	"time"
 )
@@ -13,7 +13,10 @@ const (
 )
 
 type IService interface {
-	CheckStamp(ctx context.Context, stampForValidation Stamp) bool
+	AddIndicator(indicator int) error
+	GetIndicator(indicator int) (int, error)
+	RemoveIndicator(indicator int) error
+	CheckStamp(stamp Stamp) bool
 }
 
 type Service struct {
@@ -26,24 +29,37 @@ func NewService(repository IRepository) IService {
 	}
 }
 
-func (r Service) CheckStamp(ctx context.Context, stampForValidation Stamp) bool {
-	if stampForValidation.Date > time.Now().Add(futuristicDays).Unix() {
+func (r Service) AddIndicator(indicator int) error {
+	return r.repository.AddIndicator(indicator)
+}
+
+func (r Service) GetIndicator(indicator int) (int, error) {
+	return r.repository.GetIndicator(indicator)
+}
+
+func (r Service) RemoveIndicator(indicator int) error {
+	return r.repository.RemoveIndicator(indicator)
+}
+
+func (r Service) CheckStamp(stamp Stamp) bool {
+	if stamp.Date > time.Now().Add(futuristicDays).Unix() {
 		return false
 	}
-	if stampForValidation.Date < time.Now().Add(-expiredDays).Unix() {
+	if stamp.Date < time.Now().Add(-expiredDays).Unix() {
 		return false
 	}
 
-	if !stampForValidation.IsSolved() {
-		return false // insufficient zeroes
+	if !stamp.IsSolved() {
+		return false
 	}
 
-	v, err := strconv.ParseInt(stampForValidation.Rand, 10, 64)
+	v, err := strconv.Atoi(stamp.Rand)
 	if err != nil {
-		return false // invalid rand
+		return false
 	}
 
-	_, err = r.repository.GetIndicator(ctx, v)
+	ii, err := r.repository.GetIndicator(v)
 
+	fmt.Println(ii)
 	return err == nil
 }

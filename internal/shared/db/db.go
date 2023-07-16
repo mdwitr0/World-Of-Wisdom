@@ -1,15 +1,14 @@
 package db
 
 import (
-	"context"
 	"log"
 	"sync"
 )
 
 type IDB interface {
-	Set(ctx context.Context, key string, value string) error
-	Get(ctx context.Context, key string) (*string, error)
-	Remove(ctx context.Context, key string)
+	Set(key string, value string) error
+	Get(key string) (*string, error)
+	Remove(key string)
 }
 
 type DB struct {
@@ -21,7 +20,7 @@ func NewDB() IDB {
 	return &DB{memoryDB: make(map[string]string), rw: &sync.RWMutex{}}
 }
 
-func (r *DB) Set(ctx context.Context, key string, value string) error {
+func (r *DB) Set(key string, value string) error {
 	r.rw.Lock()
 	defer r.rw.Unlock()
 
@@ -32,7 +31,7 @@ func (r *DB) Set(ctx context.Context, key string, value string) error {
 	return nil
 }
 
-func (r *DB) Get(ctx context.Context, key string) (*string, error) {
+func (r *DB) Get(key string) (*string, error) {
 	log.Printf("Getting key: %s", key)
 
 	r.rw.RLock()
@@ -50,7 +49,7 @@ func (r *DB) Get(ctx context.Context, key string) (*string, error) {
 	return nil, ErrKeyNotFound
 }
 
-func (r *DB) Remove(ctx context.Context, key string) {
+func (r *DB) Remove(key string) {
 	log.Printf("Removing key: %s", key)
 
 	r.rw.Lock()

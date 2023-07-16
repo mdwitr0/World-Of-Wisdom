@@ -1,15 +1,14 @@
 package hashcash
 
 import (
-	"context"
 	"main/internal/shared/db"
 	"strconv"
 )
 
 type IRepository interface {
-	AddIndicator(ctx context.Context, indicator int64) error
-	GetIndicator(ctx context.Context, indicator int64) (int64, error)
-	RemoveIndicator(ctx context.Context, indicator int64) error
+	AddIndicator(indicator int) error
+	GetIndicator(indicator int) (int, error)
+	RemoveIndicator(indicator int) error
 }
 
 type Repository struct {
@@ -22,16 +21,16 @@ func NewRepository(db db.IDB) IRepository {
 	}
 }
 
-func (r Repository) AddIndicator(ctx context.Context, indicator int64) error {
-	err := r.db.Set(ctx, strconv.FormatInt(indicator, 10), "true")
+func (r Repository) AddIndicator(indicator int) error {
+	err := r.db.Set(strconv.Itoa(indicator), "true")
 	if err != nil {
 		return ErrCouldNotAddIndicator
 	}
 	return nil
 }
 
-func (r Repository) GetIndicator(ctx context.Context, indicator int64) (int64, error) {
-	value, err := r.db.Get(ctx, strconv.FormatInt(indicator, 10))
+func (r Repository) GetIndicator(indicator int) (int, error) {
+	value, err := r.db.Get(strconv.Itoa(indicator))
 	if err != nil {
 		return 0, ErrCouldNotGetIndicator
 	}
@@ -41,7 +40,7 @@ func (r Repository) GetIndicator(ctx context.Context, indicator int64) (int64, e
 	return indicator, nil
 }
 
-func (r Repository) RemoveIndicator(ctx context.Context, indicator int64) error {
-	r.db.Remove(ctx, strconv.FormatInt(indicator, 10))
+func (r Repository) RemoveIndicator(indicator int) error {
+	r.db.Remove(strconv.Itoa(indicator))
 	return nil
 }

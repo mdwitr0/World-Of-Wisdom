@@ -18,5 +18,5 @@ func main() {
 
 	tcpServer := server.NewServer(hashService, quoteService)
 
-	log.Fatal(tcpServer.ListenAndServe(":8080"))
+	log.Fatal(tcpServer.Listen(":8080"))
 }
