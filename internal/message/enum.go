@@ -1,9 +1,9 @@
 package message
 
-type MessageType int
+type Type int
 
 const (
-	ChallengeRequest MessageType = iota
+	ChallengeRequest Type = iota
 	ChallengeResponse
 	QuoteRequest
 	QuoteResponse

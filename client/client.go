@@ -18,65 +18,64 @@ type Client struct {
 	Resource string
 }
 
-func NewClient(hostname, port, resource string) *Client {
+type Config struct {
+	Hostname string
+	Port     string
+	Resource string
+}
+
+func NewClient(config *Config) *Client {
 	return &Client{
-		Hostname: hostname,
-		Port:     port,
-		Resource: resource,
+		Hostname: config.Hostname,
+		Port:     config.Port,
+		Resource: config.Resource,
 	}
 }
 
-func (client *Client) Start() error {
-	conn, err := net.Dial("tcp", client.Hostname+":"+client.Port)
+func (r *Client) Start() error {
+	conn, err := net.Dial("tcp", r.Hostname+":"+r.Port)
 	if err != nil {
-		log.Printf("%s: %v", ErrFailedToDial, err)
-		return ErrFailedToDial
+		return err
 	}
 	defer conn.Close()
 
-	err = client.handleConnection(conn)
-	if err != nil {
-		log.Printf("%s: %v", ErrFailedToHandleConn, err)
-		return ErrFailedToHandleConn
+	if err := r.handleConnection(conn); err != nil {
+		return err
 	}
 	return nil
 }
 
-func (client *Client) handleConnection(conn net.Conn) error {
-	err := client.requestChallenge(conn)
-	if err != nil {
-		log.Printf("%s: %v", ErrFailedToSendMsg, err)
-		return ErrFailedToSendMsg
+func (r *Client) handleConnection(conn net.Conn) error {
+	if err := r.requestChallenge(conn); err != nil {
+		return err
 	}
 
 	resp, err := receiveResponse(conn)
 	if err != nil {
-		log.Printf("%s: %v", ErrFailedToReadResponse, err)
-		return ErrFailedToReadResponse
+		return err
 	}
 
+	return r.handleChallengeResponse(resp, conn)
+}
+
+func (r *Client) handleChallengeResponse(resp string, conn net.Conn) error {
 	quoteRequest, err := handleChallengeResponse(resp)
 	if err != nil {
-		log.Printf("%s: %v", ErrFailedToHandleResp, err)
-		return ErrFailedToHandleResp
+		return err
 	}
 
-	err = helpers.SendMessage(*quoteRequest, conn)
-	if err != nil {
-		log.Printf("%s: %v", ErrFailedToSendMsg, err)
-		return ErrFailedToSendMsg
+	if err := helpers.SendMessage(*quoteRequest, conn); err != nil {
+		return err
 	}
 
 	respQuote, err := receiveResponse(conn)
 	if err != nil {
-		log.Printf("%s: %v", ErrFailedToReadResponse, err)
-		return ErrFailedToReadResponse
+		return err
 	}
 
 	quote, err := unmarshallQuote(respQuote)
 	if err != nil {
-		log.Printf("%s: %v", ErrFailedToUnmarshal, err)
-		return ErrFailedToUnmarshal
+		return err
 	}
 
 	log.Printf("Received quote: %s", quote)
@@ -84,15 +83,14 @@ func (client *Client) handleConnection(conn net.Conn) error {
 	return nil
 }
 
-func (client *Client) requestChallenge(conn net.Conn) error {
-	msg := message.Message{Type: message.ChallengeRequest, Data: ""}
-	return helpers.SendMessage(msg, conn)
+func (r *Client) requestChallenge(conn net.Conn) error {
+	msg := message.NewMessage(message.ChallengeRequest, "")
+	return helpers.SendMessage(*msg, conn)
 }
 
 func receiveResponse(conn net.Conn) (string, error) {
 	reader := bufio.NewReader(conn)
-	resp, err := reader.ReadString('\n')
-	return resp, err
+	return reader.ReadString('\n')
 }
 
 func unmarshallQuote(respQuote string) (string, error) {
@@ -106,8 +104,7 @@ func unmarshallQuote(respQuote string) (string, error) {
 
 func handleChallengeResponse(resp string) (*message.Message, error) {
 	stamp := hashcash.Stamp{}
-	err := unmarshallStamp(resp, &stamp)
-	if err != nil {
+	if err := unmarshallStamp(resp, &stamp); err != nil {
 		return nil, err
 	}
 	solvedStamp, err := solveStamp(stamp)
@@ -123,8 +120,7 @@ func unmarshallStamp(resp string, stamp *hashcash.Stamp) error {
 	if err != nil {
 		return err
 	}
-	err = json.Unmarshal([]byte(challengeResponseMessage.Data), stamp)
-	return err
+	return json.Unmarshal([]byte(challengeResponseMessage.Data), stamp)
 }
 
 func solveStamp(stamp hashcash.Stamp) (*hashcash.Stamp, error) {

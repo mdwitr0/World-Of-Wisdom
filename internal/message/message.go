@@ -5,8 +5,8 @@ import (
 )
 
 type Message struct {
-	Type MessageType `json:"type"`
-	Data string      `json:"data"`
+	Type Type   `json:"type"`
+	Data string `json:"data"`
 }
 
 func (m *Message) ToString() (string, error) {
@@ -14,11 +14,18 @@ func (m *Message) ToString() (string, error) {
 	return string(msgBytes), err
 }
 
-func Parse(msgBytes []byte) (*Message, error) {
+func Parse(messageString string) (*Message, error) {
 	var msg Message
-	err := json.Unmarshal(msgBytes, &msg)
+	err := json.Unmarshal([]byte(messageString), &msg)
 	if err != nil {
 		return nil, err
 	}
 	return &msg, nil
+}
+
+func NewMessage(messageType Type, data string) *Message {
+	return &Message{
+		Type: messageType,
+		Data: data,
+	}
 }

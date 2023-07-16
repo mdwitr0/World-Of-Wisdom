@@ -1,7 +1,6 @@
 package hashcash
 
 import (
-	"fmt"
 	"strconv"
 	"time"
 )
@@ -23,29 +22,27 @@ type Service struct {
 	repository IRepository
 }
 
-func NewService(repository IRepository) IService {
+func NewService(hashRepo IRepository) IService {
 	return &Service{
-		repository: repository,
+		repository: hashRepo,
 	}
 }
 
-func (r Service) AddIndicator(indicator int) error {
-	return r.repository.AddIndicator(indicator)
+func (service *Service) AddIndicator(indicator int) error {
+	return service.repository.AddIndicator(indicator)
 }
 
-func (r Service) GetIndicator(indicator int) (int, error) {
-	return r.repository.GetIndicator(indicator)
+func (service *Service) GetIndicator(indicator int) (int, error) {
+	return service.repository.GetIndicator(indicator)
 }
 
-func (r Service) RemoveIndicator(indicator int) error {
-	return r.repository.RemoveIndicator(indicator)
+func (service *Service) RemoveIndicator(indicator int) error {
+	return service.repository.RemoveIndicator(indicator)
 }
 
-func (r Service) CheckStamp(stamp Stamp) bool {
-	if stamp.Date > time.Now().Add(futuristicDays).Unix() {
-		return false
-	}
-	if stamp.Date < time.Now().Add(-expiredDays).Unix() {
+func (service *Service) CheckStamp(stamp Stamp) bool {
+
+	if stamp.Date > time.Now().Add(futuristicDays).Unix() || stamp.Date < time.Now().Add(-expiredDays).Unix() {
 		return false
 	}
 
@@ -58,8 +55,7 @@ func (r Service) CheckStamp(stamp Stamp) bool {
 		return false
 	}
 
-	ii, err := r.repository.GetIndicator(v)
+	_, err = service.repository.GetIndicator(v)
 
-	fmt.Println(ii)
 	return err == nil
 }

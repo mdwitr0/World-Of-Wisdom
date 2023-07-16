@@ -15,32 +15,26 @@ type Repository struct {
 	db db.IDB
 }
 
-func NewRepository(db db.IDB) IRepository {
+func NewRepository(database db.IDB) IRepository {
 	return &Repository{
-		db: db,
+		db: database,
 	}
 }
 
-func (r Repository) AddIndicator(indicator int) error {
-	err := r.db.Set(strconv.Itoa(indicator), "true")
-	if err != nil {
-		return ErrCouldNotAddIndicator
-	}
-	return nil
+func (repo *Repository) AddIndicator(indicator int) error {
+	return repo.db.Set(strconv.Itoa(indicator), "true")
 }
 
-func (r Repository) GetIndicator(indicator int) (int, error) {
-	value, err := r.db.Get(strconv.Itoa(indicator))
-	if err != nil {
-		return 0, ErrCouldNotGetIndicator
-	}
-	if value == nil {
+func (repo *Repository) GetIndicator(indicator int) (int, error) {
+	value, err := repo.db.Get(strconv.Itoa(indicator))
+
+	if err != nil || value == nil {
 		return 0, ErrIndicatorNotFound
 	}
+
 	return indicator, nil
 }
 
-func (r Repository) RemoveIndicator(indicator int) error {
-	r.db.Remove(strconv.Itoa(indicator))
-	return nil
+func (repo *Repository) RemoveIndicator(indicator int) error {
+	return repo.db.Remove(strconv.Itoa(indicator))
 }

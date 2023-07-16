@@ -8,7 +8,7 @@ import (
 type IDB interface {
 	Set(key string, value string) error
 	Get(key string) (*string, error)
-	Remove(key string)
+	Remove(key string) error
 }
 
 type DB struct {
@@ -49,11 +49,19 @@ func (r *DB) Get(key string) (*string, error) {
 	return nil, ErrKeyNotFound
 }
 
-func (r *DB) Remove(key string) {
+func (r *DB) Remove(key string) error {
 	log.Printf("Removing key: %s", key)
 
 	r.rw.Lock()
 	defer r.rw.Unlock()
 
+	if _, ok := r.memoryDB[key]; !ok {
+		log.Printf("Key not found: %s", key)
+
+		return ErrKeyNotFound
+	}
+
 	delete(r.memoryDB, key)
+
+	return nil
 }

@@ -58,19 +58,18 @@ func (s *Stamp) Stamp2Hash() string {
 }
 
 func (s *Stamp) IsSolved() bool {
-	actualZerosCount := 0
 	hashString := helpers.Data2Sha1Hash(s.ToString())
 	if s.ZerosCount > len(hashString) {
 		return false
 	}
+
 	for _, ch := range hashString[:s.ZerosCount] {
 		if ch != zeroByte {
 			return false
 		}
-		actualZerosCount++
 	}
 
-	return s.ZerosCount <= actualZerosCount
+	return true
 }
 
 func (s *Stamp) ComputeHash(maxIterations int) (Stamp, error) {
