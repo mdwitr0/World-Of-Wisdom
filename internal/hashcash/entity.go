@@ -5,7 +5,6 @@ import (
 	"main/internal/shared/helpers"
 	"math/rand"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -20,41 +19,6 @@ type Stamp struct {
 
 func (s *Stamp) ToString() string {
 	return fmt.Sprintf("%d:%d:%d:%s::%s:%d", s.Version, s.ZerosCount, s.Date, s.Resource, s.Rand, s.Counter)
-}
-
-func (s *Stamp) Hash2Stamps(hash string) error {
-	splitHash := strings.Split(hash, ":")
-	if len(splitHash) < 6 {
-		return fmt.Errorf("invalid hash")
-	}
-	version, err := strconv.Atoi(splitHash[0])
-	if err != nil {
-		return fmt.Errorf("invalid version")
-	}
-	zerosCount, err := strconv.Atoi(splitHash[1])
-	if err != nil {
-		return fmt.Errorf("invalid zeros count")
-	}
-	date, err := strconv.ParseInt(splitHash[2], 10, 64)
-	if err != nil {
-		return fmt.Errorf("invalid date")
-	}
-	counter, err := strconv.Atoi(splitHash[5])
-	if err != nil {
-		return fmt.Errorf("invalid counter")
-	}
-
-	s.Version = version
-	s.ZerosCount = zerosCount
-	s.Date = date
-	s.Resource = splitHash[3]
-	s.Rand = splitHash[4]
-	s.Counter = counter
-	return nil
-}
-
-func (s *Stamp) Stamp2Hash() string {
-	return s.ToString()
 }
 
 func (s *Stamp) IsSolved() bool {

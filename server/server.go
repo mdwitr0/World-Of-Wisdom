@@ -3,6 +3,7 @@ package server
 import (
 	"bufio"
 	"encoding/json"
+	"log"
 	"main/internal/hashcash"
 	"main/internal/message"
 	"main/internal/quote"
@@ -87,6 +88,8 @@ func (s *Server) handleChallengeRequest(parsedRequest message.Message) (*message
 		return nil, ErrFailedToDecodeRand
 	}
 
+	log.Printf("Adding stamp %++v", stamp)
+
 	err = s.hashcashService.AddIndicator(randNum)
 	if err != nil {
 		return nil, ErrFailedToAddIndicator
@@ -98,6 +101,7 @@ func (s *Server) handleChallengeRequest(parsedRequest message.Message) (*message
 	}
 
 	respMsg := message.NewMessage(message.ChallengeResponse, string(marshaledStamp))
+
 	return respMsg, nil
 }
 
@@ -107,6 +111,8 @@ func (s *Server) handleQuoteRequest(parsedRequest message.Message) (*message.Mes
 	if err != nil {
 		return nil, ErrFailedToUnmarshal
 	}
+
+	log.Printf("Received stamp %++v", stamp)
 
 	randNum, err := strconv.Atoi(stamp.Rand)
 	if err != nil {
@@ -130,6 +136,8 @@ func (s *Server) handleQuoteRequest(parsedRequest message.Message) (*message.Mes
 	if err != nil {
 		return nil, ErrFailedToRemoveIndicator
 	}
+
+	log.Printf("Response message: %++v", responseMessage)
 
 	return responseMessage, nil
 }
